@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>No school access | EduTrack</title>
+    <link rel="stylesheet" href="{% static 'backend/app.css' %}">
+</head>
+<body class="center-page">
+    <main class="empty-state">
+        <div class="brand-mark">E</div>
+        <h1>No school access assigned</h1>
+        <p>Your account is valid, but it is not assigned to an active school. Ask an administrator to add a school membership.</p>
+        <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button class="secondary-button" type="submit">Sign out</button>
+        </form>
+    </main>
+</body>
+</html>

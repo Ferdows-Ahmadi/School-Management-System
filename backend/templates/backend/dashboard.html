@@ -1,0 +1,133 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ school.name }} | EduTrack</title>
+    <link rel="stylesheet" href="{% static 'backend/app.css' %}">
+</head>
+<body class="dashboard-page">
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+            <a class="sidebar-brand" href="{% url 'dashboard' %}">
+                <span class="brand-mark brand-mark-small">E</span>
+                <span><strong>EduTrack</strong><small>{{ school.name }}</small></span>
+            </a>
+
+            <nav class="nav-list" aria-label="Main navigation">
+                <a class="nav-link active" aria-current="page" href="{% url 'dashboard' %}">Overview</a>
+                <a class="nav-link" href="/admin/backend/student/">Students</a>
+                <a class="nav-link" href="/admin/backend/teacher/">Teachers</a>
+                <a class="nav-link" href="/admin/backend/section/">Sections</a>
+                <a class="nav-link" href="/admin/backend/attendance/">Attendance</a>
+                <a class="nav-link" href="/admin/backend/assessment/">Assessments</a>
+                <a class="nav-link" href="/admin/backend/feecharge/">Finance</a>
+                <a class="nav-link" href="/admin/backend/announcement/">Announcements</a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-chip">
+                    <span class="avatar">{{ request.user.username|first|upper }}</span>
+                    <span>
+                        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                        <small>{{ request.user.username }}</small>
+                    </span>
+                </div>
+                <form action="{% url 'logout' %}" method="post">
+                    {% csrf_token %}
+                    <button class="logout-button" type="submit">Sign out</button>
+                </form>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <button class="menu-button" type="button" data-menu-toggle aria-controls="sidebar" aria-expanded="false">Menu</button>
+                <div><p class="eyebrow">Dashboard</p><h1>{{ school.name }}</h1></div>
+                <div class="topbar-actions">
+                    {% if memberships|length > 1 %}
+                    <form method="get">
+                        <label class="sr-only" for="school-switcher">School</label>
+                        <select id="school-switcher" name="school" onchange="this.form.submit()">
+                            {% for membership in memberships %}
+                            <option value="{{ membership.school_id }}" {% if membership.school_id == school.id %}selected{% endif %}>
+                                {{ membership.school.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    {% endif %}
+                    <span class="notification-pill">{{ notification_count }} unread</span>
+                </div>
+            </header>
+
+            <section class="content">
+                {% if messages %}{% for message in messages %}<div class="alert">{{ message }}</div>{% endfor %}{% endif %}
+
+                <div class="stats-grid">
+                    <article class="stat-card"><span class="stat-label">Active students</span><strong>{{ student_count }}</strong></article>
+                    <article class="stat-card"><span class="stat-label">Active teachers</span><strong>{{ teacher_count }}</strong></article>
+                    <article class="stat-card"><span class="stat-label">Active sections</span><strong>{{ section_count }}</strong></article>
+                    <article class="stat-card">
+                        <span class="stat-label">Today's attendance</span>
+                        <strong>{{ attendance_rate }}%</strong><small>{{ attendance_total }} records</small>
+                    </article>
+                </div>
+
+                <div class="panel-grid">
+                    <section class="panel">
+                        <div class="panel-header">
+                            <div><h2>Today's attendance</h2><p>Latest records for {{ school.name }}.</p></div>
+                            <a href="/admin/backend/attendance/">Manage</a>
+                        </div>
+                        {% if recent_attendance %}
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Student</th><th>Section</th><th>Check in</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    {% for record in recent_attendance %}
+                                    <tr>
+                                        <td><strong>{{ record.enrollment.student.first_name }} {{ record.enrollment.student.last_name }}</strong><small>{{ record.enrollment.student.student_number }}</small></td>
+                                        <td>{{ record.enrollment.section.grade_level.name }} {{ record.enrollment.section.name }}</td>
+                                        <td>{{ record.check_in_time|time:"H:i"|default:"—" }}</td>
+                                        <td><span class="status status-{{ record.status }}">{{ record.get_status_display }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}<div class="empty-inline">No attendance has been recorded today.</div>{% endif %}
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-header"><div><h2>Recent activity</h2><p>Audit events for this school.</p></div></div>
+                        <div class="activity-list">
+                            {% for item in recent_activity %}
+                            <div class="activity-row">
+                                <span class="activity-dot"></span>
+                                <div>
+                                    <strong>{{ item.action }}</strong>
+                                    <p>{{ item.entity_type }}{% if item.entity_id %} #{{ item.entity_id }}{% endif %}</p>
+                                    <small>{{ item.created_at|timesince }} ago{% if item.user %} · {{ item.user.username }}{% endif %}</small>
+                                </div>
+                            </div>
+                            {% empty %}<div class="empty-inline">No activity events yet.</div>{% endfor %}
+                        </div>
+                    </section>
+                </div>
+
+                <section class="panel">
+                    <div class="panel-header"><div><h2>Section distribution</h2><p>Active sections grouped by grade level.</p></div></div>
+                    <div class="distribution-grid">
+                        {% for item in section_summary %}
+                        <div class="distribution-item"><span>{{ item.grade_level__name }}</span><strong>{{ item.total }}</strong></div>
+                        {% empty %}<div class="empty-inline">Create grades and sections in the admin to populate this view.</div>{% endfor %}
+                    </div>
+                </section>
+            </section>
+        </main>
+    </div>
+    <script src="{% static 'backend/app.js' %}" defer></script>
+</body>
+</html>
