@@ -324,7 +324,7 @@ class Staff(TimeStampedModel):
 
     class Meta:
         ordering = ["school", "employee_number"]
-        unique_together = (("school", "employee_number"), ("school", "national_id"))
+        unique_together = (("school", "employee_number"),)
 
     def clean(self):
         if self.primary_branch_id and self.primary_branch.school_id != self.school_id:
@@ -388,7 +388,7 @@ class Enrollment(TimeStampedModel):
     roll_number = models.CharField(max_length=30, blank=True)
 
     class Meta:
-        ordering = ["-section__academic_year__start_date", "student"]
+        ordering = ["-created_at"]
         unique_together = (("student", "section", "start_date"),)
 
     def clean(self):
