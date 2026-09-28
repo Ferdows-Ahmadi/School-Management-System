@@ -755,6 +755,23 @@ CREATE NONCLUSTERED INDEX [IX_Fees_payments_Fee_Date] ON [dbo].[Fees_payments]([
 CREATE NONCLUSTERED INDEX [IX_Expenses_Date] ON [dbo].[Expenses]([Expense_date]);
 CREATE NONCLUSTERED INDEX [IX_Notifications_Created_by] ON [dbo].[Notifications]([Created_by]) WHERE [Created_by] IS NOT NULL;
 CREATE NONCLUSTERED INDEX [IX_Activity_log_User_Date] ON [dbo].[Activity_log]([User_id], [CreatedAt]) WHERE [User_id] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Enrollments_Academic_year] ON [dbo].[Enrollments]([Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Subjects_Academic_year] ON [dbo].[Class_Subjects]([Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Teacher_Subjects_Academic_year] ON [dbo].[Teacher_Subjects]([Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Teacher_Classes_Academic_year] ON [dbo].[Teacher_Classes]([Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Subject_Year] ON [dbo].[Class_Schedules]([Subject_id], [Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Academic_year] ON [dbo].[Class_Schedules]([Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Term] ON [dbo].[Class_Schedules]([Term_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Class_Subject_Year] ON [dbo].[Class_Schedules]([Class_id], [Subject_id], [Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Teacher_Subject_Year] ON [dbo].[Class_Schedules]([Teacher_id], [Subject_id], [Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Class_Schedules_Teacher_Class_Year] ON [dbo].[Class_Schedules]([Teacher_id], [Class_id], [Academic_year_id]);
+CREATE NONCLUSTERED INDEX [IX_Exams_Results_Recorded_by] ON [dbo].[Exams_Results]([Recorded_by]) WHERE [Recorded_by] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Fees_payments_Received_by] ON [dbo].[Fees_payments]([Received_by]) WHERE [Received_by] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Expenses_Recorded_by] ON [dbo].[Expenses]([Recorded_by]) WHERE [Recorded_by] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Salaries_Recorded_by] ON [dbo].[Salaries]([Recorded_by]) WHERE [Recorded_by] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Announcements_Created_by] ON [dbo].[Announcements]([Created_by]) WHERE [Created_by] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Notification_recipients_Parent_lookup] ON [dbo].[Notification_recipients]([parent_id], [Notification_id]) WHERE [parent_id] IS NOT NULL;
+CREATE NONCLUSTERED INDEX [IX_Notification_recipients_User_lookup] ON [dbo].[Notification_recipients]([User_id], [Notification_id]) WHERE [User_id] IS NOT NULL;
 GO
 
 /* =========================================================
