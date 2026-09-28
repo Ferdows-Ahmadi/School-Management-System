@@ -112,7 +112,8 @@ CREATE TABLE [dbo].[Students](
     CONSTRAINT [PK_Students] PRIMARY KEY CLUSTERED ([Student_id]),
     CONSTRAINT [UQ_Students_Student_number] UNIQUE ([Student_number]),
     CONSTRAINT [CK_Students_Gender] CHECK ([Gender] IN (N'Male', N'Female', N'Other')),
-    CONSTRAINT [CK_Students_Status] CHECK ([Status] IN (N'Active', N'Inactive', N'Graduated', N'Withdrawn'))
+    CONSTRAINT [CK_Students_Status] CHECK ([Status] IN (N'Active', N'Inactive', N'Graduated', N'Withdrawn')),
+    CONSTRAINT [CK_Students_Birth_Admission] CHECK ([Date_of_birth] IS NULL OR [Date_of_birth] <= [Admission_date])
 );
 GO
 
@@ -377,7 +378,10 @@ CREATE TABLE [dbo].[Class_Schedules](
         REFERENCES [dbo].[Class_Subjects]([Class_id], [Subject_id], [Academic_year_id]),
     CONSTRAINT [FK_Class_Schedules_Teacher_Subjects]
         FOREIGN KEY ([Teacher_id], [Subject_id], [Academic_year_id])
-        REFERENCES [dbo].[Teacher_Subjects]([Teacher_id], [Subject_id], [Academic_year_id])
+        REFERENCES [dbo].[Teacher_Subjects]([Teacher_id], [Subject_id], [Academic_year_id]),
+    CONSTRAINT [FK_Class_Schedules_Teacher_Classes]
+        FOREIGN KEY ([Teacher_id], [Class_id], [Academic_year_id])
+        REFERENCES [dbo].[Teacher_Classes]([Teacher_id], [Class_id], [Academic_year_id])
 );
 GO
 
@@ -402,6 +406,11 @@ CREATE TABLE [dbo].[Attendance](
     CONSTRAINT [CK_Attendance_Source] CHECK ([Source] IN (N'Manual', N'Fingerprint', N'Device', N'Import')),
     CONSTRAINT [CK_Attendance_Times] CHECK (
         [Check_outTime] IS NULL OR [Check_inTime] IS NULL OR [Check_outTime] > [Check_inTime]
+    ),
+    CONSTRAINT [CK_Attendance_Absent_Times] CHECK (
+        ([Status] IN (N'Absent', N'Excused') AND [Check_inTime] IS NULL AND [Check_outTime] IS NULL)
+        OR
+        ([Status] IN (N'Present', N'Late'))
     ),
     CONSTRAINT [FK_Attendance_Enrollments] FOREIGN KEY ([Enrollment_id]) REFERENCES [dbo].[Enrollments]([Enrollment_id]),
     CONSTRAINT [FK_Attendance_Users] FOREIGN KEY ([Recorded_by]) REFERENCES [dbo].[Users]([User_id])
@@ -545,6 +554,9 @@ CREATE TABLE [dbo].[Expenses](
     [CreatedAt] DATETIME2(0) NOT NULL CONSTRAINT [DF_Expenses_CreatedAt] DEFAULT (SYSDATETIME()),
     CONSTRAINT [PK_Expenses] PRIMARY KEY CLUSTERED ([Expenses_id]),
     CONSTRAINT [CK_Expenses_Amount] CHECK ([Amount] > 0),
+    CONSTRAINT [CK_Expenses_Payment_method] CHECK (
+        [Payment_method] IS NULL OR [Payment_method] IN (N'Cash', N'MobileMoney', N'Bank', N'Other')
+    ),
     CONSTRAINT [FK_Expenses_Users] FOREIGN KEY ([Recorded_by]) REFERENCES [dbo].[Users]([User_id])
 );
 GO
@@ -573,14 +585,17 @@ CREATE TABLE [dbo].[Salaries](
     CONSTRAINT [CK_Salaries_Month] CHECK ([Salary_month] BETWEEN 1 AND 12),
     CONSTRAINT [CK_Salaries_Year] CHECK ([Salary_year] BETWEEN 2000 AND 2200),
     CONSTRAINT [CK_Salaries_Amounts] CHECK (
-        [Base_amount] >= 0 AND [Bonus_amount] >= 0 AND [Deduction_amount] >= 0
+        [Base_amount] > 0 AND [Bonus_amount] >= 0 AND [Deduction_amount] >= 0
         AND [Deduction_amount] <= [Base_amount] + [Bonus_amount]
     ),
     CONSTRAINT [CK_Salaries_Status] CHECK ([Payment_status] IN (N'Paid', N'Unpaid')),
     CONSTRAINT [CK_Salaries_Payment_date] CHECK (
-        ([Payment_status] = N'Paid' AND [Payment_date] IS NOT NULL)
+        ([Payment_status] = N'Paid' AND [Payment_date] IS NOT NULL AND [Payment_method] IS NOT NULL)
         OR
         ([Payment_status] = N'Unpaid' AND [Payment_date] IS NULL)
+    ),
+    CONSTRAINT [CK_Salaries_Payment_method] CHECK (
+        [Payment_method] IS NULL OR [Payment_method] IN (N'Cash', N'MobileMoney', N'Bank', N'Other')
     ),
     CONSTRAINT [FK_Salaries_Teachers] FOREIGN KEY ([Teacher_id]) REFERENCES [dbo].[Teachers]([Teacher_id]),
     CONSTRAINT [FK_Salaries_Staff] FOREIGN KEY ([Staff_id]) REFERENCES [dbo].[Staff]([Staff_id]),
@@ -679,6 +694,9 @@ CREATE TABLE [dbo].[Notification_recipients](
     ),
     CONSTRAINT [CK_Notification_recipients_Channel] CHECK ([Channel] IN (N'InApp', N'Email', N'SMS', N'Push')),
     CONSTRAINT [CK_Notification_recipients_Delivery] CHECK ([DeliveryStatus] IN (N'Pending', N'Sent', N'Failed')),
+    CONSTRAINT [CK_Notification_recipients_DeliveredAt] CHECK (
+        [DeliveryStatus] <> N'Sent' OR [DeliveredAt] IS NOT NULL
+    ),
     CONSTRAINT [CK_Notification_recipients_Read] CHECK (
         ([IsRead] = 0 AND [ReadAt] IS NULL)
         OR
@@ -759,6 +777,19 @@ BEGIN
     )
     BEGIN
         THROW 50001, 'Term dates must fall inside the academic year.', 1;
+    END;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        JOIN [dbo].[Terms] t
+          ON t.[Academic_year_id] = i.[Academic_year_id]
+         AND t.[Term_id] <> i.[Term_id]
+         AND t.[Start_date] <= i.[End_date]
+         AND t.[End_date] >= i.[Start_date]
+    )
+    BEGIN
+        THROW 50010, 'Terms in the same academic year cannot overlap.', 1;
     END
 END;
 GO
@@ -918,6 +949,65 @@ BEGIN
     )
     BEGIN
         THROW 50008, 'Exam result does not match the student enrollment/class/year or exceeds the maximum score.', 1;
+    END
+END;
+GO
+
+
+CREATE OR ALTER TRIGGER [dbo].[TR_Fees_Validate]
+ON [dbo].[Fees]
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        JOIN [dbo].[Enrollments] e ON e.[Enrollment_id] = i.[Enrollment_id]
+        JOIN [dbo].[Academic_years] y ON y.[Academic_year_id] = e.[Academic_year_id]
+        WHERE i.[Due_date] < y.[Start_date]
+           OR i.[Due_date] > y.[End_Date]
+           OR i.[Due_date] < e.[Enrollment_date]
+           OR (e.[End_date] IS NOT NULL AND i.[Due_date] > e.[End_date])
+    )
+    BEGIN
+        THROW 50011, 'Fee due date must fall inside the enrollment and academic year.', 1;
+    END;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        WHERE (
+            SELECT ISNULL(SUM(p.[Amount]), 0)
+            FROM [dbo].[Fees_payments] p
+            WHERE p.[fee_id] = i.[Fee_id]
+        ) > (i.[Amount] - i.[Discount_amount])
+    )
+    BEGIN
+        THROW 50012, 'Existing payments exceed the net fee amount.', 1;
+    END;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        WHERE i.[Status] <> N'Waived'
+          AND i.[Status] <> CASE
+                WHEN (
+                    SELECT ISNULL(SUM(p.[Amount]), 0)
+                    FROM [dbo].[Fees_payments] p
+                    WHERE p.[fee_id] = i.[Fee_id]
+                ) >= (i.[Amount] - i.[Discount_amount]) THEN N'Paid'
+                WHEN (
+                    SELECT ISNULL(SUM(p.[Amount]), 0)
+                    FROM [dbo].[Fees_payments] p
+                    WHERE p.[fee_id] = i.[Fee_id]
+                ) > 0 THEN N'Partial'
+                ELSE N'Unpaid'
+              END
+    )
+    BEGIN
+        THROW 50013, 'Fee status must match its payment total.', 1;
     END
 END;
 GO
