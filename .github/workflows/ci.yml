@@ -1,0 +1,49 @@
+name: Django CI
+
+on:
+  push:
+    branches: ["main", "refactor/**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Django system check
+        env:
+          DJANGO_SECRET_KEY: ci-secret-key-only
+          DJANGO_DEBUG: "true"
+          DB_ENGINE: sqlite
+        run: python manage.py check
+
+      - name: Verify migrations
+        env:
+          DJANGO_SECRET_KEY: ci-secret-key-only
+          DJANGO_DEBUG: "true"
+          DB_ENGINE: sqlite
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations
+        env:
+          DJANGO_SECRET_KEY: ci-secret-key-only
+          DJANGO_DEBUG: "true"
+          DB_ENGINE: sqlite
+        run: python manage.py migrate --noinput
+
+      - name: Run tests
+        env:
+          DJANGO_SECRET_KEY: ci-secret-key-only
+          DJANGO_DEBUG: "true"
+          DB_ENGINE: sqlite
+        run: python manage.py test
