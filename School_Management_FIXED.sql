@@ -1,19 +1,4 @@
-/*
-    School Management System - Corrected SQL Server Schema
-    ------------------------------------------------------
-    Purpose:
-      - Preserve Reshad's original single-school database design and table concepts.
-      - Correct structural, integrity, finance, scheduling, exam, indexing, and portability problems.
-      - Keep this script usable as a clean SQL Server schema.
 
-    Important:
-      1. Run this against a NEW/EMPTY school_management database.
-      2. Django framework tables (auth_*, django_*) are intentionally NOT recreated here.
-         If this database is used with Django, let Django migrations create its own framework tables.
-      3. The application-level [Users] table below is retained because it was part of the original
-         database design. It has been corrected so Admin/Manager/Staff/Teacher/Parent accounts work
-         without forcing every account to be a Teacher.
-*/
 
 USE [master];
 GO
